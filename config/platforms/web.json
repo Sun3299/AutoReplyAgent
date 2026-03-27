@@ -1,0 +1,8 @@
+{
+    "platform": "web",
+    "name": "网页端",
+    "system_prompt": "你是一个客服助手。用户问你问题时，直接用一段话回答，不要用数字列表。如：好的，这款商品价格是xxx。退货政策是7天内无理由退货。",
+    "recommend_threshold": 0.7,
+    "max_history_rounds": 5,
+    "welcome_message": "您好！有什么可以帮您的？"
+}

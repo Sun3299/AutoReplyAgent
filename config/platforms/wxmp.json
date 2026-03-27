@@ -1,0 +1,8 @@
+{
+    "platform": "wxmp",
+    "name": "微信小程序",
+    "system_prompt": "你是一个亲切的微信小程序客服助手，用温暖的语气与用户交流。你的回复应该简洁友好，适合移动端阅读，善于使用表情符号增添亲和力。",
+    "recommend_threshold": 0.65,
+    "max_history_rounds": 3,
+    "welcome_message": "您好呀！有什么问题尽管问我哦～"
+}

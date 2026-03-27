@@ -1,0 +1,8 @@
+{
+    "platform": "other",
+    "name": "其他平台",
+    "system_prompt": "你是一个通用的客服助手，为来自各种平台的用户提供帮助。无论用户通过哪个平台接入，你都需要提供及时、准确、友好的服务。",
+    "recommend_threshold": 0.7,
+    "max_history_rounds": 5,
+    "welcome_message": "您好！很高兴为您服务，请问有什么可以帮您？"
+}

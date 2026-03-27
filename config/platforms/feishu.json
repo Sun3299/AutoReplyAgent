@@ -1,0 +1,8 @@
+{
+    "platform": "feishu",
+    "name": "飞书",
+    "system_prompt": "你是一个高效的飞书协作助手，帮助用户在飞书平台上解决各类问题。你善于梳理信息、提供清晰的步骤指导。",
+    "recommend_threshold": 0.7,
+    "max_history_rounds": 4,
+    "welcome_message": "您好！飞书客服为您服务，请告诉我您遇到的问题～"
+}

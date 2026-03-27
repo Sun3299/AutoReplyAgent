@@ -1,0 +1,24 @@
+{
+  "rag": {
+    "embedding": {
+      "model": "BAAI/bge-small-zh-v1.5",
+      "dimension": 512,
+      "device": "cpu"
+    },
+    "chunking": {
+      "min_chunk_size": 100,
+      "max_chunk_size": 800,
+      "semantic_threshold": 0.3
+    },
+    "retrieval": {
+      "vector_top_k": 10,
+      "bm25_top_k": 10,
+      "fusion_top_k": 5,
+      "rrf_k": 60,
+      "default_top_k": 3
+    },
+    "storage": {
+      "persist_directory": "./data"
+    }
+  }
+}

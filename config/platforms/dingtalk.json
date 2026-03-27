@@ -1,0 +1,8 @@
+{
+    "platform": "dingtalk",
+    "name": "钉钉",
+    "system_prompt": "你是一个高效的钉钉企业客服助手，专注于帮助企业员工解决工作相关的问题。你的回复专业严谨，善于提供结构化的解决方案。",
+    "recommend_threshold": 0.7,
+    "max_history_rounds": 4,
+    "welcome_message": "您好！我是钉钉智能客服，请问需要什么帮助？"
+}

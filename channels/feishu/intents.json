@@ -1,0 +1,144 @@
+{
+  "用户意图": {
+    "description": "用户想要干什么",
+    "intents": {
+      "query_order": {
+        "description": "查询订单",
+        "knowledge_type": "both",
+        "keywords": {
+          "core": ["订单", "order", "查订单"],
+          "action": ["查询", "看看", "看一下"],
+          "entity": ["我的", "你"]
+        }
+      },
+      "query_logistics": {
+        "description": "查询物流",
+        "knowledge_type": "external",
+        "keywords": {
+          "core": ["物流", "快递", "logistics", "shipping", "package", "delivery"],
+          "action": ["到哪", "在哪", "查", "看"],
+          "entity": ["我的", "这个"]
+        }
+      },
+      "query_product": {
+        "description": "查询商品",
+        "knowledge_type": "internal",
+        "keywords": {
+          "core": ["商品", "产品", "product", "有什么", "卖什么"],
+          "action": ["有", "卖", "买"],
+          "entity": []
+        }
+      },
+      "query_price": {
+        "description": "询问价格",
+        "knowledge_type": "internal",
+        "keywords": {
+          "core": ["价格", "多少钱", "price", "费用", "贵", "便宜"],
+          "action": ["多少", "问"],
+          "entity": []
+        }
+      },
+      "query_user_info": {
+        "description": "查询用户信息",
+        "knowledge_type": "internal",
+        "keywords": {
+          "core": ["个人信息", "账户", "账号", "会员", "积分"],
+          "action": ["查", "看"],
+          "entity": ["我的"]
+        }
+      },
+      "query_weather": {
+        "description": "查询天气",
+        "knowledge_type": "external",
+        "keywords": {
+          "core": ["天气", "weather", "气温", "温度"],
+          "action": ["怎么样", "如何"],
+          "entity": []
+        }
+      },
+      "action_refund": {
+        "description": "申请退款",
+        "knowledge_type": "internal",
+        "keywords": {
+          "core": ["退款", "退货", "refund", "退钱"],
+          "action": ["申请", "要", "想"],
+          "entity": []
+        }
+      },
+      "action_cancel": {
+        "description": "取消订单",
+        "knowledge_type": "internal",
+        "keywords": {
+          "core": ["取消", "撤单", "cancel", "不想要"],
+          "action": ["取消", "撤销"],
+          "entity": []
+        }
+      },
+      "action_create": {
+        "description": "下单购买",
+        "knowledge_type": "internal",
+        "keywords": {
+          "core": ["下单", "购买", "buy", "订购", "买"],
+          "action": ["要", "想", "下单"],
+          "entity": []
+        }
+      },
+      "action_modify": {
+        "description": "修改订单",
+        "knowledge_type": "internal",
+        "keywords": {
+          "core": ["修改", "改", "更换"],
+          "action": ["改一下", "修改"],
+          "entity": ["地址", "电话"]
+        }
+      },
+      "chat": {
+        "description": "闲聊/打招呼",
+        "knowledge_type": "internal",
+        "keywords": {
+          "core": ["你好", "hi", "hello", "在吗", "您好", "早上好"],
+          "action": [],
+          "entity": []
+        }
+      }
+    }
+  },
+  "客户意图": {
+    "description": "管理者希望客服干什么",
+    "intents": {
+      "bargain": {
+        "description": "议价",
+        "keywords": {
+          "core": ["议价", "便宜", "优惠", "打折", "降价", "太贵"],
+          "action": ["能不能", "可以", "能"],
+          "entity": ["点", "些"]
+        }
+      },
+      "upsell": {
+        "description": "推荐升级",
+        "keywords": {
+          "core": ["升级", "高配", "pro", "plus"],
+          "action": ["推荐", "更好的"],
+          "entity": []
+        }
+      },
+      "retain": {
+        "description": "挽留客户",
+        "keywords": {
+          "core": ["考虑", "看看", "算了", "犹豫"],
+          "action": ["再", "考虑"],
+          "entity": []
+        }
+      }
+    }
+  },
+  "置信度配置": {
+    "core_weight": 0.4,
+    "action_weight": 0.3,
+    "entity_weight": 0.2,
+    "full_match_bonus": 0.1,
+    "threshold_high": 0.7,
+    "threshold_medium": 0.5,
+    "ambiguity_diff": 0.2
+  }
+}

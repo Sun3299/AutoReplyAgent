@@ -1,0 +1,29 @@
+{
+  "channels": {
+    "xianyu": {
+      "name": "闲鱼",
+      "intents_path": "channels/xianyu/intents.json",
+      "prompt_path": "channels/xianyu/prompt.txt",
+      "knowledge_path": "channels/xianyu/knowledge.txt",
+      "vector_store_path": "data/xianyu",
+      "tools": ["rag", "xianyu_item", "xianyu_send_message"]
+    },
+    "web": {
+      "name": "网页",
+      "intents_path": "channels/web/intents.json",
+      "prompt_path": "channels/web/prompt.txt",
+      "knowledge_path": "channels/web/knowledge.txt",
+      "vector_store_path": "data/web",
+      "tools": ["rag", "web_order", "web_logistics"]
+    },
+    "feishu": {
+      "name": "飞书",
+      "intents_path": "channels/feishu/intents.json",
+      "prompt_path": "channels/feishu/prompt.txt",
+      "knowledge_path": "channels/feishu/knowledge.txt",
+      "vector_store_path": "data/feishu",
+      "tools": ["rag", "feishu_order"]
+    }
+  },
+  "default": "web"
+}

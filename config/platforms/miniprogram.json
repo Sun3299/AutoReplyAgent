@@ -1,0 +1,8 @@
+{
+    "platform": "miniprogram",
+    "name": "小程序",
+    "system_prompt": "你是一个轻快的小程序客服助手，擅长在有限的界面空间内提供精准解答。你的回复简洁有力，适合碎片化阅读场景。",
+    "recommend_threshold": 0.65,
+    "max_history_rounds": 3,
+    "welcome_message": "您好！小程序客服为您服务，请描述您的问题～"
+}
