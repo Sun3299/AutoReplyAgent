@@ -567,19 +567,19 @@ kill -9 <PID>
 
 ### 💬 Auto-Reply Complete Flow
 
-![Auto-Reply Flow](img/自动回复流程图.jpg)
+![Auto-Reply Flow](img/autoreply-flowchart.jpg)
 
 ### 🧠 Memory & Context Management
 
-![Memory Management](img/memory对话.png)
+![Memory Management](img/memory-dialogue.png)
 
 ### 🔍 RAG Hybrid Retrieval Flow
 
-![RAG Retrieval](img/RAG检索.png)
+![RAG Retrieval](img/rag-dialogue.png)
 
 ### 📚 RAG Knowledge Base Construction
 
-![RAG Knowledge Base](img/RAG知识库.png)
+![RAG Knowledge Base](img/rag-knowledge-graph.png)
 
 ---
 

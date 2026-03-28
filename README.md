@@ -11,7 +11,7 @@
 
 **下一代多渠道 AI 客服系统** —— RAG + Agent + Pipeline架构，支持闲鱼等平台自动化回复
 
-[English](#autoreply---intelligent-customer-service-agent-system) · [功能亮点](#-功能亮点) · [架构设计](#-系统架构) · [工具说明](#-工具箱) · [通信机制](#-通信机制) · [快速开始](#-快速开始) · [Roadmap](#-roadmap) · [免责说明](#-免责说明) · [联系交流](#-联系与交流)
+[English](#autoreply---intelligent-customer-service-agent-system) · [功能亮点](#-功能亮点) · [架构设计](#-系统架构) · [工具说明](#-插拔式工具集tools) · [通信机制](#-通信机制) · [快速开始](#-快速开始) · [Roadmap](#-roadmap) · [免责说明](#-免责说明) · [联系交流](#-联系与交流)
 
 </div>
 
@@ -571,19 +571,19 @@ kill -9 <PID>
 
 ### 💬 自动回复完整流程
 
-![自动回复流程](img/自定义阶梯式议价.jpg)
+![自动回复流程](img/autoreply-flowchart.jpg)
 
 ### 🧠 记忆与上下文管理
 
-![记忆管理](img/memory对话.png)
+![记忆管理](img/memory-dialogue.png)
 
 ### 🔍 RAG 混合检索流程
 
-![RAG检索](img/RAG测试.png)
+![RAG检索](img/rag-dialogue.png)
 
 ### 📚 RAG 知识库构建
 
-![RAG知识库](img/RAG知识库.png)
+![RAG知识库](img/rag-knowledge-graph.png)
 
 ---
 
