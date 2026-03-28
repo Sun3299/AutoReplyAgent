@@ -130,6 +130,12 @@ class XianyuLive:
         # 是否模拟人工打字延迟
         self.simulate_human_typing = os.getenv("SIMULATE_HUMAN_TYPING", "False").lower() == "true"
 
+        # ==================== 消息追踪 ====================
+        # 上次收到业务消息时间（用于保活）
+        self.last_message_time = time.time()
+        # 保活消息发送间隔（秒），默认3分钟
+        self.keepalive_interval = int(os.getenv("KEEPALIVE_INTERVAL", "180"))
+
     async def refresh_token(self):
         """
         刷新Access Token
@@ -744,6 +750,9 @@ class XianyuLive:
             # ==================== 记录用户消息 ====================
             logger.info(
                 f"用户: {send_user_name} (ID: {send_user_id}), 商品: {item_id}, 会话: {chat_id}, 消息: {send_message}")
+            
+            # 更新最后消息时间（用于保活）
+            self.last_message_time = time.time()
 
             # ==================== 人工模式检查 ====================
             if self.is_manual_mode(chat_id):
@@ -817,6 +826,7 @@ class XianyuLive:
                     # 发送回复
                     if ai_reply:
                         await self.send_msg(self.ws, chat_id, send_user_id, ai_reply)
+                        self.last_message_time = time.time()  # 更新最后消息时间（发送也算活动）
                         logger.info(f"【已发送回复】到会话 {chat_id}: {ai_reply[:50]}...")
                     else:
                         logger.warning(f"【AUTOREPLY返回空】会话 {chat_id}")
@@ -862,7 +872,7 @@ class XianyuLive:
     async def heartbeat_loop(self, ws):
         """
         心跳维护循环
-        定时发送心跳包，检查心跳响应超时
+        定时发送心跳包，检查心跳响应超时，发送保活消息防止连接被服务器关闭
 
         Args:
             ws (websockets.WebSocketClientProtocol): WebSocket连接对象
@@ -874,6 +884,16 @@ class XianyuLive:
                 # 检查是否需要发送心跳
                 if current_time - self.last_heartbeat_time >= self.heartbeat_interval:
                     await self.send_heartbeat(ws)
+
+                # 检查保活：如果超过3分钟没有收到任何消息，发送ping保持连接
+                if current_time - self.last_message_time >= self.keepalive_interval:
+                    try:
+                        # 使用 WebSocket 协议的 ping 帧保活
+                        await ws.ping()
+                        logger.debug(f"发送保活ping，距离上次消息已过 {int(current_time - self.last_message_time)} 秒")
+                    except Exception as e:
+                        logger.warning(f"保活ping失败: {e}")
+                        break
 
                 # 检查心跳响应超时
                 if (current_time - self.last_heartbeat_response) > (self.heartbeat_interval + self.heartbeat_timeout):
@@ -941,6 +961,7 @@ class XianyuLive:
                     # 初始化心跳时间
                     self.last_heartbeat_time = time.time()
                     self.last_heartbeat_response = time.time()
+                    self.last_message_time = time.time()
 
                     # 启动心跳任务
                     self.heartbeat_task = asyncio.create_task(self.heartbeat_loop(websocket))
