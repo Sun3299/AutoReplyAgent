@@ -65,12 +65,7 @@ class RagTool(BaseTool):
 
         JSON Schema 格式，用于 LLM 理解需要什么参数。
         """
-        return {
-            "top_k": {
-                "type": "integer",
-                "description": "返回结果数量"
-            }
-        }
+        return {"top_k": {"type": "integer", "description": "返回结果数量"}}
 
     def execute(self, **params) -> ToolResult:
         """
@@ -80,19 +75,57 @@ class RagTool(BaseTool):
             **params: 包含 query 和可选的 top_k
 
         Returns:
-            ToolResult: 成功时 data 为文档列表，失败时 error 包含错误信息
+            ToolResult: 成功时 data 为文档列表（含content和source），失败时 error 包含错误信息
         """
         try:
             query = params.get("query", "")
             top_k = params.get("top_k", 5)
-            
+
             # 根据 channel 获取对应的 retriever
             from rag.hybrid_retriever import get_retriever
+
             retriever = get_retriever(channel=self._channel)
-            results = retriever.retrieve(query, top_k)
-            
-            return ToolResult(success=True, data=results, message="查询成功")
+
+            # 使用 retrieve_with_scores 获取完整结果（含 source）
+            # 格式：{"content": "...", "source": "...", "score": 0.xx, "rank": 1}
+            results = retriever.retrieve_with_scores(query, top_k)
+
+            # 转换为字典列表返回，包含 content 和 source
+            formatted_results = [
+                {
+                    "content": item.content,
+                    "source": item.source,
+                    "score": item.score,
+                    "rank": item.rank,
+                }
+                for item in results
+            ]
+
+            # P2优化: 空结果降级查询
+            if not formatted_results:
+                fallback_queries = [
+                    f"常见问题:{query}",
+                    f"FAQ:{query}",
+                    query,
+                ]
+                for fallback_q in fallback_queries:
+                    fallback_results = retriever.retrieve_with_scores(fallback_q, top_k)
+                    if fallback_results:
+                        formatted_results = [
+                            {
+                                "content": item.content,
+                                "source": item.source,
+                                "score": item.score,
+                                "rank": item.rank,
+                                "fallback": True,  # 标记为降级查询结果
+                            }
+                            for item in fallback_results
+                        ]
+                        break
+
+            return ToolResult(success=True, data=formatted_results, message="查询成功")
         except Exception as e:
+            print(f"[RAG ERROR] {type(e).__name__}: {str(e)}", flush=True)
             return ToolResult(success=False, error=str(e))
 
     def validate_params(self, **params) -> tuple:

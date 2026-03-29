@@ -30,17 +30,17 @@ if TYPE_CHECKING:
 class OutputStep(Step):
     """
     输出合成步骤
-    
+
     负责：
     1. 收集 RAG 结果、工具结果、LLM 输出
     2. 使用 OutputSynthesizer 合成最终回复
     3. 应用格式控制和质量过滤
-    
+
     使用示例：
         step = OutputStep()
         result = step.execute(ctx)
     """
-    
+
     def __init__(
         self,
         synthesizer: Optional[OutputSynthesizer] = None,
@@ -48,7 +48,7 @@ class OutputStep(Step):
     ):
         """
         初始化 Output 步骤
-        
+
         Args:
             synthesizer: 输出合成器实例
             default_format: 默认输出格式
@@ -56,69 +56,61 @@ class OutputStep(Step):
         super().__init__("output_step", StepType.OUTPUT, optional=False, timeout=30)
         self._synthesizer = synthesizer
         self._default_format = default_format
-    
+
     @property
     def synthesizer(self) -> OutputSynthesizer:
         """获取合成器实例"""
         if self._synthesizer is None:
             # 延迟创建
             from output.synthesizer import get_synthesizer
+
             self._synthesizer = get_synthesizer()
         return self._synthesizer
-    
-    def _do_execute(self, ctx: 'PipelineContext') -> StepResult:
+
+    def _do_execute(self, ctx: "PipelineContext") -> StepResult:
         """
         执行输出合成
-        
+
         Args:
             ctx: Pipeline上下文
-            
+
         Returns:
             StepResult: 执行结果
         """
         start_time = time.time()
-        
+
         try:
-            # 构建输出上下文
             output_context = self._build_output_context(ctx)
-            
-            # 检查是否需要澄清
+
             if ctx.get("needs_clarify"):
                 clarify_question = ctx.get("clarify_question", "请提供更多信息")
                 final_response = clarify_question
                 output_source = "clarify"
             else:
-                # 合成最终回复
                 synth_result = self.synthesizer.synthesize(output_context)
                 final_response = synth_result.content
                 output_source = synth_result.source
-            
-            # 检查是否应该终止
+
             if ctx.get("should_terminate"):
                 terminate_reason = ctx.get("terminate_reason", "")
                 if terminate_reason:
                     final_response = terminate_reason
                     output_source = "terminate"
-            
-            # =========================================================
-            # 后处理: 根据 action 生成话术
-            # =========================================================
-            final_response = self._apply_recommendation_postprocess(
-                ctx, final_response
-            )
-            
+
+            final_response = self._apply_recommendation_postprocess(ctx, final_response)
+
             # 如果是新会话，加欢迎语
             if ctx.get("is_new_session"):
                 welcome = ctx.get("welcome_message", "")
                 if welcome:
                     final_response = f"{welcome}\n\n{final_response}"
-            
+
             # 设置到上下文
             ctx.set("final_response", final_response)
             ctx.set("output_source", output_source)
-            
+
             duration = time.time() - start_time
-            
+
             return StepResult(
                 success=True,
                 data={
@@ -131,9 +123,9 @@ class OutputStep(Step):
                 metadata={
                     "output_source": output_source,
                     "duration_ms": int(duration * 1000),
-                }
+                },
             )
-            
+
         except Exception as e:
             duration = time.time() - start_time
             return StepResult(
@@ -145,26 +137,26 @@ class OutputStep(Step):
                 metadata={
                     "error_type": type(e).__name__,
                     "duration_ms": int(duration * 1000),
-                }
+                },
             )
-    
+
     def _apply_recommendation_postprocess(
-        self, ctx: 'PipelineContext', current_response: str
+        self, ctx: "PipelineContext", current_response: str
     ) -> str:
         """
         根据 action 生成推荐话术后处理
-        
+
         Args:
             ctx: Pipeline上下文
             current_response: 当前回复
-            
+
         Returns:
             处理后的回复
         """
         recommendation = ctx.get("recommendation")
         if not recommendation:
             return current_response
-        
+
         if isinstance(recommendation, dict):
             action = recommendation.get("action", "none")
             product_name = recommendation.get("product_name", "")
@@ -175,12 +167,12 @@ class OutputStep(Step):
             reason = recommendation.reason or ""
         else:
             return current_response
-        
+
         if action == "none" or not action:
             return current_response
-        
+
         user_context = ctx.get("user_context", {})
-        
+
         if action == "recommend":
             return (
                 f"根据您的情况，推荐您了解「{product_name}」。"
@@ -197,21 +189,19 @@ class OutputStep(Step):
             return "抱歉，您的问题我无法解答，已为您转接人工客服。"
         else:
             return current_response
-    
-    def _build_output_context(self, ctx: 'PipelineContext') -> OutputContext:
+
+    def _build_output_context(self, ctx: "PipelineContext") -> OutputContext:
         """
         构建输出上下文
-        
+
         Args:
             ctx: Pipeline上下文
-            
+
         Returns:
             OutputContext
         """
-        # 获取 RAG 结果
         rag_results = ctx.get("rag_results", [])
         if isinstance(rag_results, list):
-            # 可能是字符串列表或字典列表
             rag_contents = []
             for r in rag_results:
                 if isinstance(r, str):
@@ -223,8 +213,7 @@ class OutputStep(Step):
                     rag_contents.append(str(r))
         else:
             rag_contents = [str(rag_results)] if rag_results else []
-        
-        # 获取工具结果
+
         tool_results = ctx.get("tool_results", [])
         tool_dicts = []
         for r in tool_results:
@@ -232,11 +221,9 @@ class OutputStep(Step):
                 tool_dicts.append(r)
             else:
                 tool_dicts.append({"data": str(r), "success": True})
-        
-        # 获取 LLM 输出
+
         llm_output = ctx.get("llm_response", "")
-        
-        # 获取意图信息
+
         intent = ctx.get("intent")
         intent_str = ""
         if intent:
@@ -245,15 +232,14 @@ class OutputStep(Step):
                 intent_str = intent_dict.get("intentType", "")
             else:
                 intent_str = str(intent)
-        
-        # 获取置信度
+
         confidence = 0.0
         if intent and hasattr(intent, "confidence"):
             confidence = intent.confidence
-        
+
         # 获取会话状态
         session_state = ctx.get("session_state", {})
-        
+
         return OutputContext(
             rag_results=rag_contents,
             tool_results=tool_dicts,

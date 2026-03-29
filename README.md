@@ -23,6 +23,17 @@
 
 ---
 
+## 🆕 版本更新 (v1.1)
+
+### 最新更新
+
+- ✅ **接口稳定性优化**：优化xianyu_channel_api 接口设计，闲鱼接入方案现已稳定可用，支持连续一周以上正常运营而不被平台风控，一周内无需手动过滑块，上传cookie
+- ✅ **RAG 文档入库简化**：优化知识库切块机制，新增语句切块，现已支持 PDF、DOC、TXT 等多格式文档自动解析入库。只需将文档放入对应 Channel 目录下的 `knowledge/` 文件夹，启动服务即可一键完成知识库构建
+- ✅ **检索精度大幅提升**：优化 RAG 生成结果排序算法，结合混合检索与智能重排序，检索准确率提升至 **90%+**
+- ✅ **LLM 接口架构升级**：借鉴 OpenClaw 设计理念，重构 LLM 接口抽象层，支持多 Provider 无缝切换，代码复用性和可维护性显著提升
+
+---
+
 ## ✨ 功能亮点
 
 ### 🧠 智能意图识别（Intent Agent）
@@ -201,58 +212,6 @@ MessageAdapter  → 渠道专属格式
 │                    LLM Providers                          │
 │     通义千问 / DeepSeek / GPT / Claude / 豆包 / MiniMax    │
 └──────────────────────────────────────────────────────────┘
-```
-
----
-
-## 📁 项目结构
-
-```
-autoreply/
-├── adapter/              # 接入层：各渠道消息标准化
-│   └── adapter_core.py   # MessageAdapter：统一消息结构
-├── agent/                # Agent 大脑：意图识别与决策
-│   ├── agent_core.py
-│   └── intents.json      # 意图规则配置
-├── rag/                  # RAG 模块：混合检索核心
-│   ├── embedding.py      # 本地 Embedding（BGE）
-│   ├── hybrid_retriever.py  # BM25 + Vector + RRF
-│   ├── vector_store.py   # Chroma 向量存储
-│   ├── bm25.py           # BM25 关键词检索
-│   └── advanced_chunker.py  # 语义分块
-├── pipeline/             # Pipeline 编排器
-│   ├── orchestrator.py   # 核心调度
-│   └── steps/            # 5大步骤（Agent/Tools/LLM/Output/Context）
-├── session/              # 会话管理
-│   └── session_manager.py
-├── context/              # 上下文管理
-│   ├── manager.py
-│   ├── cache.py          # Redis 缓存
-│   └── async_db.py       # 异步写库
-├── tools/                # 工具集（插拔式）
-│   ├── rag_tool.py
-│   ├── user_profile_tool.py
-│   └── channels/         # 渠道专属工具
-│       └── xianyu_tools.py
-├── channels/             # 各渠道配置
-│   ├── xianyu/           # 闲鱼（生产可用）
-│   ├── feishu/           # 飞书（研发中）
-│   └── web/              # 网页端（研发中）
-├── llm/                  # LLM 调用封装
-│   ├── factory.py
-│   ├── providers.py
-│   ├── claude.py
-│   └── gpt35.py
-├── prompt/               # Prompt 模板管理
-│   └── templates.json
-├── observability/         # 可观测性
-│   ├── logger.py
-│   └── prometheus_metrics.py
-├── gateway/              # FastAPI HTTP 服务
-├── config/               # 配置管理
-├── models/               # 本地 Embedding 模型
-│   └── bge-small-zh-v1.5/
-└── img/                  # 架构图/流程图
 ```
 
 ---

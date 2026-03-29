@@ -136,6 +136,11 @@ class XianyuLive:
         # 保活消息发送间隔（秒），默认3分钟
         self.keepalive_interval = int(os.getenv("KEEPALIVE_INTERVAL", "180"))
 
+        # ==================== 测试配置 ====================
+        # 是否禁用 Token 自动刷新（用于测试 Token 实际过期时间）
+        # 设为 true 时不会主动刷新，等 Token 自然过期
+        self.disable_token_refresh = os.getenv("DISABLE_TOKEN_REFRESH", "false").lower() == "true"
+
     async def refresh_token(self):
         """
         刷新Access Token
@@ -174,6 +179,13 @@ class XianyuLive:
 
                 # 检查是否需要刷新Token（当前时间 - 上次刷新时间 >= 刷新间隔）
                 if current_time - self.last_token_refresh_time >= self.token_refresh_interval:
+                    # 检查是否禁用了 Token 刷新（用于测试）
+                    if self.disable_token_refresh:
+                        logger.info("【测试模式】Token刷新已禁用，等待自然过期...")
+                        # 不刷新，只等，然后继续检查
+                        await asyncio.sleep(60)
+                        continue
+
                     logger.info("Token即将过期，准备刷新...")
 
                     # 尝试刷新Token

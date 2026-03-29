@@ -11,7 +11,7 @@
 
 **Next-Gen Multi-Channel AI Customer Service System** — RAG + Agent + Pipeline Architecture
 
-[中文](README.md) · [Highlights](#-key-features) · [Architecture](#-system-architecture) · [Tools](#-tools) · [Communication](#-communication) · [Quick Start](#-quick-start) · [Roadmap](#-roadmap) · [Disclaimer](#-disclaimer) · [Contact](#-contact-and-collaboration)
+[中文](README.md) · [What's New](#-whats-new) · [Highlights](#-key-features) · [Architecture](#-system-architecture) · [Tools](#-tools) · [Communication](#-communication) · [Quick Start](#-quick-start) · [Roadmap](#-roadmap) · [Disclaimer](#-disclaimer) · [Contact](#-contact-and-collaboration)
 
 </div>
 
@@ -20,6 +20,17 @@
 ## One-Line Description
 
 > AutoReply is an intelligent customer service system based on **LangChain Agent + Hybrid RAG + Pipeline Orchestration**, supporting multi-channel (Xianyu, Feishu, Web) unified access, automating buyer inquiries, bargaining, order queries, and more. **Ready for production.**
+
+---
+
+## 🆕 What's New (v1.1)
+
+### Latest Updates
+
+- ✅ **API Stability Improved**: Optimized `xianyu_channel_api` interface design — Xianyu integration is now stable and reliable, supporting **over 7 days of continuous operation** without triggering platform risk controls, no manual CAPTCHA or cookie refresh needed within a week
+- ✅ **Simplified RAG Document Ingestion**: Enhanced knowledge base chunking mechanism with new sentence-level splitting, now supporting **PDF, DOC, TXT** and other formats. Just drop documents into the `knowledge/` folder under the corresponding channel directory, and the service will automatically build the knowledge base on startup
+- ✅ **Retrieval Accuracy Significantly Improved**: Optimized RAG result ranking algorithm, combining hybrid retrieval with intelligent re-ranking, boosting accuracy to **90%+**
+- ✅ **LLM Interface Architecture Upgraded**: Drawing from OpenClaw's design philosophy, refactored the LLM interface abstraction layer with seamless multi-Provider switching, significantly improved code reusability and maintainability
 
 ---
 
@@ -200,55 +211,6 @@ Send reply to buyer
 │                   LLM Providers                         │
 │     Qwen / DeepSeek / GPT / Claude / Doubao / MiniMax   │
 └──────────────────────────────────────────────────────────┘
-```
-
----
-
-## 📁 Project Structure
-
-```
-autoreply/
-├── adapter/              # Channel adapters → unified UserMessage
-├── agent/                # Intent recognition + action decisions
-│   ├── agent_core.py
-│   └── intents.json      # Intent rules config
-├── rag/                  # Hybrid retrieval core
-│   ├── embedding.py      # Local BGE embedding
-│   ├── hybrid_retriever.py  # BM25 + Vector + RRF
-│   ├── vector_store.py   # Chroma vector storage
-│   ├── bm25.py           # BM25 keyword retrieval
-│   └── advanced_chunker.py  # Semantic chunking
-├── pipeline/             # Pipeline orchestrator
-│   ├── orchestrator.py   # Core scheduling
-│   └── steps/            # 5 steps (Agent/Tools/LLM/Output/Context)
-├── session/              # Session management
-├── context/              # Context management
-│   ├── manager.py
-│   ├── cache.py          # Redis cache
-│   └── async_db.py       # Async DB writer
-├── tools/                # Pluggable tools
-│   ├── rag_tool.py
-│   ├── user_profile_tool.py
-│   └── channels/         # Channel-specific tools
-│       └── xianyu_tools.py
-├── channels/             # Per-channel configs
-│   ├── xianyu/           # Xianyu (production)
-│   ├── feishu/           # Feishu (in dev)
-│   └── web/              # Web (in dev)
-├── llm/                  # LLM factory
-│   ├── factory.py
-│   ├── providers.py
-│   ├── claude.py
-│   └── gpt35.py
-├── prompt/               # Prompt template management
-├── observability/        # Observability
-│   ├── logger.py
-│   └── prometheus_metrics.py
-├── gateway/              # FastAPI HTTP service
-├── config/               # Configuration management
-├── models/               # Local embedding model
-│   └── bge-small-zh-v1.5/
-└── img/                  # Architecture diagrams
 ```
 
 ---

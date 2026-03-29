@@ -14,19 +14,29 @@ from .base import (
     Message,
 )
 
+# 导入结构化日志
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from observability.logger import get_logger
+
+# 全局 logger 实例
+_logger = get_logger("llm.fallback")
+
 
 class ModelFallbackChain:
     """
     LLM Provider 降级链
-    
+
     按优先级尝试不同的 LLM Provider，失败时自动切换到下一个。
-    
+
     特性：
     - 支持指数退避重试（1s, 2s, 4s）
     - 每个模型最多 3 次重试
     - 最多 9 次总尝试（3 模型 × 3 重试）
     - 追踪哪个模型成功响应
-    
+
     使用示例：
         chain = ModelFallbackChain([
             MiniMaxProvider(api_key="xxx"),
@@ -35,7 +45,7 @@ class ModelFallbackChain:
         ])
         response = chain.chat(messages)
     """
-    
+
     def __init__(
         self,
         providers: List[BaseLLMProvider],
@@ -44,7 +54,7 @@ class ModelFallbackChain:
     ):
         """
         初始化 Fallback 链
-        
+
         Args:
             providers: Provider 列表，按优先级排序
             base_delay: 指数退避基础延迟（秒）
@@ -53,7 +63,7 @@ class ModelFallbackChain:
         self.providers = providers
         self.base_delay = base_delay
         self.max_attempts_per_model = max_attempts_per_model
-    
+
     def chat(
         self,
         messages: List[Message],
@@ -61,28 +71,34 @@ class ModelFallbackChain:
     ) -> LLMResponse:
         """
         对话补全（同步）
-        
+
         按优先级尝试每个 Provider，失败时自动切换。
-        
+
         Args:
             messages: 对话消息列表
             config: 配置
-            
+
         Returns:
             LLMResponse: 第一个成功的响应
         """
         total_attempts = 0
         max_total_attempts = len(self.providers) * self.max_attempts_per_model
-        
+
         # 记录尝试历史
         attempt_history: List[Dict[str, Any]] = []
-        
+
         for provider in self.providers:
             for attempt in range(self.max_attempts_per_model):
                 total_attempts += 1
-                
+
                 if total_attempts > max_total_attempts:
                     # 达到最大尝试次数
+                    _logger.error(
+                        "All LLM providers failed - max attempts reached",
+                        extra={
+                            "attempt_history": attempt_history,
+                        },
+                    )
                     return LLMResponse(
                         content="",
                         error="所有 LLM Provider 均失败",
@@ -91,23 +107,54 @@ class ModelFallbackChain:
                             "attempt_history": attempt_history,
                         },
                     )
-                
+
+                _logger.info(
+                    f"Attempting provider {provider.name} (attempt {attempt + 1}/{self.max_attempts_per_model})",
+                    extra={
+                        "provider": provider.name,
+                        "attempt": attempt + 1,
+                        "total_attempt": total_attempts,
+                    },
+                )
+
                 try:
                     response = provider.chat(messages, config)
-                    
+
                     # 检查是否成功（无错误）
-                    if hasattr(response, 'error') and response.error:
-                        attempt_history.append({
-                            "provider": provider.name,
-                            "attempt": attempt + 1,
-                            "error": response.error,
-                        })
+                    if hasattr(response, "error") and response.error:
+                        attempt_history.append(
+                            {
+                                "provider": provider.name,
+                                "attempt": attempt + 1,
+                                "error": response.error,
+                            }
+                        )
+                        _logger.warning(
+                            f"Provider {provider.name} returned error",
+                            extra={
+                                "provider": provider.name,
+                                "attempt": attempt + 1,
+                                "error": response.error,
+                            },
+                        )
                         # 指数退避
-                        delay = self.base_delay * (2 ** attempt)
+                        delay = self.base_delay * (2**attempt)
+                        _logger.info(
+                            f"Falling back to next provider in {delay:.1f}s",
+                            extra={"delay": delay},
+                        )
                         time.sleep(delay)
                         continue
-                    
+
                     # 成功，记录到 metadata 并返回
+                    _logger.info(
+                        f"Provider {provider.name} succeeded",
+                        extra={
+                            "provider": provider.name,
+                            "attempt": attempt + 1,
+                            "total_attempts": total_attempts,
+                        },
+                    )
                     response.metadata = {
                         "success": True,
                         "model_used": provider.name,
@@ -116,19 +163,39 @@ class ModelFallbackChain:
                         "attempt_history": attempt_history,
                     }
                     return response
-                    
+
                 except Exception as e:
-                    attempt_history.append({
-                        "provider": provider.name,
-                        "attempt": attempt + 1,
-                        "error": str(e),
-                    })
+                    attempt_history.append(
+                        {
+                            "provider": provider.name,
+                            "attempt": attempt + 1,
+                            "error": str(e),
+                        }
+                    )
+                    _logger.error(
+                        f"Provider {provider.name} raised exception",
+                        extra={
+                            "provider": provider.name,
+                            "attempt": attempt + 1,
+                            "error": str(e),
+                        },
+                    )
                     # 指数退避
-                    delay = self.base_delay * (2 ** attempt)
+                    delay = self.base_delay * (2**attempt)
+                    _logger.info(
+                        f"Falling back to next provider in {delay:.1f}s",
+                        extra={"delay": delay},
+                    )
                     time.sleep(delay)
                     continue
-        
+
         # 所有 Provider 都失败
+        _logger.error(
+            "All LLM providers failed",
+            extra={
+                "attempt_history": attempt_history,
+            },
+        )
         return LLMResponse(
             content="",
             error="所有 LLM Provider 均失败",
@@ -137,7 +204,7 @@ class ModelFallbackChain:
                 "attempt_history": attempt_history,
             },
         )
-    
+
     async def achat(
         self,
         messages: List[Message],
@@ -145,26 +212,30 @@ class ModelFallbackChain:
     ) -> LLMResponse:
         """
         异步对话补全
-        
+
         Args:
             messages: 对话消息列表
             config: 配置
-            
+
         Returns:
             LLMResponse: 第一个成功的响应
         """
         import asyncio
-        
+
         total_attempts = 0
         max_total_attempts = len(self.providers) * self.max_attempts_per_model
-        
+
         attempt_history: List[Dict[str, Any]] = []
-        
+
         for provider in self.providers:
             for attempt in range(self.max_attempts_per_model):
                 total_attempts += 1
-                
+
                 if total_attempts > max_total_attempts:
+                    _logger.error(
+                        "All LLM providers failed (async) - max attempts reached",
+                        extra={"attempt_history": attempt_history},
+                    )
                     return LLMResponse(
                         content="",
                         error="所有 LLM Provider 均失败",
@@ -173,20 +244,35 @@ class ModelFallbackChain:
                             "attempt_history": attempt_history,
                         },
                     )
-                
+
+                _logger.info(
+                    f"Async: Attempting provider {provider.name} (attempt {attempt + 1})",
+                    extra={"provider": provider.name, "attempt": attempt + 1},
+                )
+
                 try:
                     response = await provider.achat(messages, config)
-                    
-                    if hasattr(response, 'error') and response.error:
-                        attempt_history.append({
-                            "provider": provider.name,
-                            "attempt": attempt + 1,
-                            "error": response.error,
-                        })
-                        delay = self.base_delay * (2 ** attempt)
+
+                    if hasattr(response, "error") and response.error:
+                        attempt_history.append(
+                            {
+                                "provider": provider.name,
+                                "attempt": attempt + 1,
+                                "error": response.error,
+                            }
+                        )
+                        _logger.warning(
+                            f"Async: Provider {provider.name} returned error",
+                            extra={"provider": provider.name, "error": response.error},
+                        )
+                        delay = self.base_delay * (2**attempt)
                         await asyncio.sleep(delay)
                         continue
-                    
+
+                    _logger.info(
+                        f"Async: Provider {provider.name} succeeded",
+                        extra={"provider": provider.name},
+                    )
                     response.metadata = {
                         "success": True,
                         "model_used": provider.name,
@@ -195,17 +281,24 @@ class ModelFallbackChain:
                         "attempt_history": attempt_history,
                     }
                     return response
-                    
+
                 except Exception as e:
-                    attempt_history.append({
-                        "provider": provider.name,
-                        "attempt": attempt + 1,
-                        "error": str(e),
-                    })
-                    delay = self.base_delay * (2 ** attempt)
+                    attempt_history.append(
+                        {
+                            "provider": provider.name,
+                            "attempt": attempt + 1,
+                            "error": str(e),
+                        }
+                    )
+                    _logger.error(
+                        f"Async: Provider {provider.name} raised exception",
+                        extra={"provider": provider.name, "error": str(e)},
+                    )
+                    delay = self.base_delay * (2**attempt)
                     await asyncio.sleep(delay)
                     continue
-        
+
+        _logger.error("All LLM providers failed (async)")
         return LLMResponse(
             content="",
             error="所有 LLM Provider 均失败",
@@ -214,7 +307,7 @@ class ModelFallbackChain:
                 "attempt_history": attempt_history,
             },
         )
-    
+
     def chat_stream(
         self,
         messages: List[Message],
@@ -222,7 +315,7 @@ class ModelFallbackChain:
     ) -> AsyncIterator[str]:
         """
         流式对话补全
-        
+
         注意：流式不支持自动切换，只使用第一个可用 Provider。
         如果需要完整流式降级，需要特殊处理。
         """

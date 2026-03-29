@@ -137,6 +137,6 @@ class Step(ABC):
             StepResult: 执行结果
         """
         pass
-    
+
     def __repr__(self):
         return f"Step({self.name}, type={self.step_type.value})"

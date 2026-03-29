@@ -5,6 +5,7 @@
       "intents_path": "channels/xianyu/intents.json",
       "prompt_path": "channels/xianyu/prompt.txt",
       "knowledge_path": "channels/xianyu/knowledge.txt",
+      "knowledge_dir": "channels/xianyu/knowledge/",
       "vector_store_path": "data/xianyu",
       "tools": ["rag", "xianyu_item", "xianyu_send_message"]
     },
@@ -13,6 +14,7 @@
       "intents_path": "channels/web/intents.json",
       "prompt_path": "channels/web/prompt.txt",
       "knowledge_path": "channels/web/knowledge.txt",
+      "knowledge_dir": "channels/web/knowledge/",
       "vector_store_path": "data/web",
       "tools": ["rag", "web_order", "web_logistics"]
     },
@@ -21,6 +23,7 @@
       "intents_path": "channels/feishu/intents.json",
       "prompt_path": "channels/feishu/prompt.txt",
       "knowledge_path": "channels/feishu/knowledge.txt",
+      "knowledge_dir": "channels/feishu/knowledge/",
       "vector_store_path": "data/feishu",
       "tools": ["rag", "feishu_order"]
     }

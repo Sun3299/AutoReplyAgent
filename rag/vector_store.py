@@ -203,9 +203,13 @@ class ChromaVectorStore:
                 source = meta.get("source", "unknown") if meta else "unknown"
                 
                 # 将距离转换为相似度分数
-                # Chroma 使用 L2 距离，距离越小越相似
-                # 转换为相似度：1 - normalized_distance
-                score = float(1.0 - distance)
+                # Chroma 返回的 distance 是 L2 距离（未归一化）
+                # 由于我们的 embedding 已经过 L2 归一化，distance 范围是 [0, 2]
+                # 转换为 [0, 1] 范围的相似度：1 - distance/2
+                # 这样 0 距离（完全相同）→ 1.0 相似度
+                # 2 距离（完全相反）→ 0.0 相似度
+                normalized_distance = max(0.0, min(distance, 2.0)) / 2.0
+                score = float(1.0 - normalized_distance)
                 
                 doc = Document(
                     content=doc_content,

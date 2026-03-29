@@ -15,9 +15,13 @@ from datetime import datetime
 import uuid
 
 from .models import (
-    ToolCall, ExecutionTrace,
-    AgentConfig, AgentMetrics,
-    SessionInfo, AgentInput, AgentOutput,
+    ToolCall,
+    ExecutionTrace,
+    AgentConfig,
+    AgentMetrics,
+    SessionInfo,
+    AgentInput,
+    AgentOutput,
     AgentRecommendation,
 )
 from .intent_loader import get_intent_loader, IntentMatch
@@ -42,6 +46,8 @@ class Planner:
         # 调用 intent_loader 决定路由
         route_result = self.loader.decide_route(user_message, session_state)
 
+        print(f"[AGENT DEBUG] route_result: {route_result}", flush=True)
+
         route = route_result.get("route", "external")
         confidence = route_result.get("confidence", 0.0)
         intent_match = route_result.get("intent")
@@ -53,73 +59,91 @@ class Planner:
         needs_clarify = route_result.get("need_clarify", False)
         clarify_question = route_result.get("clarify_message", "")
 
-        # 根据路由类型生成执行计划
+        # P2优化: 置信度门限过滤
+        # 置信度太低时，即使路由到RAG也当闲聊处理，避免低质量检索
+        LOW_CONFIDENCE_THRESHOLD = -0.3
+        if route == "rag" and confidence < LOW_CONFIDENCE_THRESHOLD:
+            print(
+                f"[AGENT DEBUG] RAG置信度{confidence:.2f}低于阈值{LOW_CONFIDENCE_THRESHOLD}，降级为chat"
+            )
+            route = "chat"  # 降级为chat
+            # plan = []  # 清空plan，不执行RAG
+
+        # 根据路由类型生成执行计划（完整的 if/elif/else 链）
         if route == "clarify":
-            # 需要澄清 - 终止，等待用户输入
-            should_terminate = True
-            terminate_reason = f"您好: {clarify_question}"
-            trace.add_call("_clarify", terminate_reason, {})
+            # 需要澄清 - 不终止，让 LLM 帮助用户明确
+            should_terminate = False
+            needs_clarify = True
+            trace.add_call("_clarify", clarify_question, {})
 
         elif route == "ambiguous":
-            # 多意图歧义 - 终止，要求用户明确
-            should_terminate = True
-            terminate_reason = f"多意图歧义，请明确: {reason}"
-            trace.add_call("_ambiguous", terminate_reason, {})
+            # 多意图歧义 - 不终止，让 LLM 判断用户意图
+            should_terminate = False
+            needs_clarify = True
+            trace.add_call("_ambiguous", clarify_question, {})
 
-        # 如果匹配的是 chat 意图，走 RAG 检索
-        if intent_match and intent_match.intent_key == "chat":
-            plan.append(ToolCall(
-                step=1,
-                tool_name="rag",
-                reason=f"Chat意图RAG检索",
-                params={"query": intent_match.intent_key}
-            ))
-            trace.add_call("rag", f"RAG检索 [chat]", {})
+        elif intent_match and intent_match.intent_key == "chat":
+            # 如果匹配的是 chat 意图，做RAG作为背景知识（P1优化）
+            trace.add_call("chat", "Chat意图，RAG查背景知识+LLM回复", {})
+            plan.append(
+                ToolCall(
+                    step=1,
+                    tool_name="rag",
+                    reason="Chat意图背景知识查询",
+                    params={"query": user_message, "optional": True},
+                )
+            )
+
         elif route == "rag":
             # 走 RAG 检索
-            intent_key = intent_match.intent_key if intent_match else "general"
-            plan.append(ToolCall(
-                step=1,
-                tool_name="rag",
-                reason=f"RAG路由: {reason} (置信度:{confidence:.2f})",
-                params={"query": intent_key}
-            ))
-            trace.add_call("rag", f"RAG检索 [{intent_key}]", {})
+            plan.append(
+                ToolCall(
+                    step=1,
+                    tool_name="rag",
+                    reason=f"RAG路由: {reason} (置信度:{confidence:.2f})",
+                    params={"query": user_message},
+                )
+            )
+            trace.add_call("rag", f"RAG检索 [消息:{user_message[:20]}...]", {})
 
         elif route == "external":
             # 走外部工具或外部搜索
             if intent_match and intent_match.intent_key.startswith("query_logistics"):
-                plan.append(ToolCall(
-                    step=1,
-                    tool_name="logistics_tool",
-                    reason=f"外部工具: {reason}",
-                    params={"query": user_message}
-                ))
+                plan.append(
+                    ToolCall(
+                        step=1,
+                        tool_name="logistics_tool",
+                        reason=f"外部工具: {reason}",
+                        params={"query": user_message},
+                    )
+                )
                 trace.add_call("logistics_tool", "物流查询", {})
             else:
-                # 低置信或其他外部意图，走 external_search
-                plan.append(ToolCall(
-                    step=1,
-                    tool_name="external_search",
-                    reason=f"外部搜索兜底: {reason}",
-                    params={"query": user_message}
-                ))
+                plan.append(
+                    ToolCall(
+                        step=1,
+                        tool_name="external_search",
+                        reason=f"外部搜索兜底: {reason}",
+                        params={"query": user_message},
+                    )
+                )
                 trace.add_call("external_search", "外部搜索", {})
 
-        elif route == "chat":
-            # 无意图/低置信，不执行工具，但让 LLM 生成回复（不终止）
-            # 保持 execution_plan 为空，Tools 会跳过，LLM 会运行
-            should_terminate = False
-            terminate_reason = ""
+        # elif route == "chat":
+        #     # 无意图/低置信，不执行工具，但让 LLM 生成回复（不终止）
+        #     should_terminate = False
+        #     terminate_reason = ""
 
         else:
             # 默认走 RAG 兜底
-            plan.append(ToolCall(
-                step=1,
-                tool_name="rag",
-                reason=f"默认RAG兜底",
-                params={"query": user_message}
-            ))
+            plan.append(
+                ToolCall(
+                    step=1,
+                    tool_name="rag",
+                    reason=f"默认RAG兜底",
+                    params={"query": user_message},
+                )
+            )
             trace.add_call("rag", "默认RAG检索", {})
 
         # 构建 Intent 对象（兼容旧接口，但用 intent_match 的数据）
@@ -136,7 +160,9 @@ class Planner:
         )
 
 
-def _build_intent(intent_match: Optional[IntentMatch], confidence: float, reason: str, route: str):
+def _build_intent(
+    intent_match: Optional[IntentMatch], confidence: float, reason: str, route: str
+):
     """
     根据 intent_match 构建 Intent 对象
 
@@ -150,7 +176,7 @@ def _build_intent(intent_match: Optional[IntentMatch], confidence: float, reason
             intent_type="unknown",
             confidence=confidence,
             reason=reason,
-            knowledge_type="unknown"
+            knowledge_type="unknown",
         )
 
     intent_key = intent_match.intent_key
@@ -188,7 +214,7 @@ def _build_intent(intent_match: Optional[IntentMatch], confidence: float, reason
         action_type=action_type,
         confidence=confidence,
         reason=reason,
-        knowledge_type=knowledge_type
+        knowledge_type=knowledge_type,
     )
 
 
@@ -204,7 +230,7 @@ class Agent:
     def run(self, agent_input: AgentInput) -> AgentOutput:
         """运行Agent"""
         self.metrics.record_request()
-        
+
         # 确保 channel 一致
         if agent_input.channel:
             self.channel = agent_input.channel
@@ -219,10 +245,12 @@ class Agent:
         # 生成推荐决策
         recommendation = self._decide_recommendation(
             intent=output.intent,
-            user_context={"user_tier": agent_input.session_info.state.get("user_tier", "normal")},
+            user_context={
+                "user_tier": agent_input.session_info.state.get("user_tier", "normal")
+            },
             session_history=agent_input.session_info.rounds,
         )
-        output.recommendation = recommendation
+        # output.recommendation = recommendation
 
         self._record_metrics(output)
         return output
@@ -237,17 +265,15 @@ class Agent:
         决定是否推荐
         """
         # 投诉/退款 → 转人工
-        action_type = getattr(intent, 'action_type', None)
+        action_type = getattr(intent, "action_type", None)
         if action_type == "refund":
             return AgentRecommendation(
-                action="transfer",
-                confidence=0.9,
-                reason="退款需求转人工处理"
+                action="transfer", confidence=0.9, reason="退款需求转人工处理"
             )
 
         # 用户等级和置信度
         user_tier = user_context.get("user_tier", "normal")
-        confidence = getattr(intent, 'confidence', 0.0)
+        confidence = getattr(intent, "confidence", 0.0)
 
         if user_tier == "vip" and confidence > 0.8:
             return AgentRecommendation(
@@ -255,7 +281,7 @@ class Agent:
                 product_id="VIP_PRODUCT",
                 product_name="VIP专属套餐",
                 reason="您是我们的VIP用户，专属推荐",
-                confidence=confidence
+                confidence=confidence,
             )
 
         # 新用户引导
@@ -265,13 +291,13 @@ class Agent:
                 product_id="STARTER_PRODUCT",
                 product_name="新人专属套餐",
                 reason="新用户首购优惠",
-                confidence=0.8
+                confidence=0.8,
             )
 
         return AgentRecommendation(action="none", confidence=0.0)
 
     def _record_metrics(self, output: AgentOutput):
-        intent_type = getattr(output.intent, 'intent_type', 'unknown')
+        intent_type = getattr(output.intent, "intent_type", "unknown")
 
         if intent_type == "clarify":
             self.metrics.record_clarify()
@@ -279,7 +305,11 @@ class Agent:
             for plan in output.execution_plan:
                 if plan.tool_name == "rag":
                     self.metrics.record_rag()
-                elif plan.tool_name not in ["_rag_confidence_check", "_clarify", "_ambiguous"]:
+                elif plan.tool_name not in [
+                    "_rag_confidence_check",
+                    "_clarify",
+                    "_ambiguous",
+                ]:
                     self.metrics.record_tool_call(True)
 
     def get_metrics(self) -> AgentMetrics:

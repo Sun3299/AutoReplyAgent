@@ -11,11 +11,11 @@
       "semantic_threshold": 0.3
     },
     "retrieval": {
-      "vector_top_k": 10,
-      "bm25_top_k": 10,
-      "fusion_top_k": 5,
-      "rrf_k": 60,
-      "default_top_k": 3
+      "vector_top_k": 4,
+      "bm25_top_k": 4,
+      "fusion_top_k": 3,
+      "rrf_k": 20,
+      "default_top_k": 2
     },
     "storage": {
       "persist_directory": "./data"

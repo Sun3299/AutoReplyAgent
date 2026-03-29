@@ -35,9 +35,37 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler for startup/shutdown."""
     # Startup
     print("Starting API Gateway...")
+    await warmup_retrievers()
     yield
     # Shutdown
     print("Shutting down API Gateway...")
+
+
+async def warmup_retrievers():
+    """
+    验证渠道配置（不预加载模型）
+
+    模型会在首次实际检索时懒加载，这样：
+    1. 启动速度快（不用等待模型加载）
+    2. 内存按需使用（没被调用的 channel 不占内存）
+    """
+    print("Verifying channel configurations...")
+    from config.channel_manager import get_channel_config
+
+    # 获取所有配置的 channel
+    channels = ["xianyu", "web", "feishu"]
+
+    for channel in channels:
+        try:
+            config = get_channel_config(channel)
+            if config:
+                print(f"  ✓ Channel configured: {channel}")
+            else:
+                print(f"  - Channel not configured: {channel}")
+        except Exception as e:
+            print(f"  ✗ Channel config error for {channel}: {e}")
+
+    print("Channel verification complete. Models will be loaded on first use.")
 
 
 # Create FastAPI application
@@ -45,7 +73,7 @@ app = FastAPI(
     title="AutoReply API Gateway",
     description="API Gateway with JWT authentication, rate limiting, and v1/v2 routing",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 
@@ -53,22 +81,22 @@ app = FastAPI(
 async def metrics_middleware(request: Request, call_next):
     """Middleware to collect Prometheus metrics."""
     start_time = time.time()
-    
+
     # Track active requests
     ACTIVE_REQUESTS.inc()
-    
+
     try:
         response = await call_next(request)
-        
+
         # Record metrics
         duration = time.time() - start_time
         endpoint = request.url.path
         method = request.method
         status_code = response.status_code
-        
+
         REQUEST_COUNT.labels(method=method, endpoint=endpoint, status=status_code).inc()
         REQUEST_LATENCY.labels(method=method, endpoint=endpoint).observe(duration)
-        
+
         return response
     finally:
         ACTIVE_REQUESTS.dec()
@@ -79,12 +107,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions with consistent JSON format."""
     return JSONResponse(
         status_code=exc.status_code,
-        content={
-            "success": False,
-            "error": exc.detail,
-            "status_code": exc.status_code
-        },
-        headers=exc.headers if hasattr(exc, "headers") else {}
+        content={"success": False, "error": exc.detail, "status_code": exc.status_code},
+        headers=exc.headers if hasattr(exc, "headers") else {},
     )
 
 
@@ -97,8 +121,8 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={
             "success": False,
             "error": "Internal server error",
-            "status_code": 500
-        }
+            "status_code": 500,
+        },
     )
 
 
@@ -111,14 +135,14 @@ app.include_router(v2_router)
     "/health",
     summary="Health Check",
     description="Check if the gateway is healthy",
-    tags=["health"]
+    tags=["health"],
 )
 async def health_check() -> Dict[str, Any]:
     """
     Health check endpoint.
-    
+
     GET /health
-    
+
     Returns:
         200: {"status": "healthy", "timestamp": "...", "rate_limiter": {...}}
     """
@@ -127,8 +151,8 @@ async def health_check() -> Dict[str, Any]:
         "timestamp": time.time(),
         "rate_limiter": {
             "active_users": len(rate_limiter.buckets),
-            "rate_limit": rate_limiter.rate
-        }
+            "rate_limit": rate_limiter.rate,
+        },
     }
 
 
@@ -136,32 +160,29 @@ async def health_check() -> Dict[str, Any]:
     "/metrics",
     summary="Prometheus Metrics",
     description="Expose Prometheus metrics for monitoring",
-    tags=["monitoring"]
+    tags=["monitoring"],
 )
 async def metrics():
     """
     Prometheus metrics endpoint.
-    
+
     GET /metrics
-    
+
     Returns:
         200: Prometheus-formatted metrics text
     """
     # Cleanup inactive buckets periodically
     rate_limiter.cleanup_inactive_buckets(max_idle_seconds=3600)
-    
+
     from observability.prometheus_metrics import get_metrics, get_content_type
-    
-    return Response(
-        content=get_metrics(),
-        media_type=get_content_type()
-    )
+
+    return Response(content=get_metrics(), media_type=get_content_type())
 
 
 def _parse_prometheus_metrics() -> Dict[str, Any]:
     """Parse Prometheus metrics into a dictionary."""
     metrics_output = generate_latest().decode("utf-8")
-    
+
     result = {}
     for line in metrics_output.split("\n"):
         if line and not line.startswith("#") and "{" not in line:
@@ -173,7 +194,7 @@ def _parse_prometheus_metrics() -> Dict[str, Any]:
                     result[metric_name] = metric_value
                 except ValueError:
                     pass
-    
+
     return result
 
 
@@ -181,34 +202,25 @@ def _parse_prometheus_metrics() -> Dict[str, Any]:
     "/token",
     summary="Create Test Token",
     description="Create a test JWT token (for development only)",
-    tags=["auth"]
+    tags=["auth"],
 )
 async def create_token(user_id: str) -> Dict[str, Any]:
     """
     Create a test JWT token for development purposes.
-    
+
     POST /token
-    
+
     Args:
         user_id: User identifier to encode in token
-        
+
     Returns:
         200: {"access_token": "...", "token_type": "bearer", "expires_in": ...}
     """
     token = create_access_token(user_id)
-    return {
-        "access_token": token,
-        "token_type": "bearer",
-        "expires_in": 3600
-    }
+    return {"access_token": token, "token_type": "bearer", "expires_in": 3600}
 
 
-@app.get(
-    "/",
-    summary="Root",
-    description="Gateway root endpoint",
-    tags=["root"]
-)
+@app.get("/", summary="Root", description="Gateway root endpoint", tags=["root"])
 async def root():
     """Root endpoint with gateway info."""
     return {
@@ -216,10 +228,11 @@ async def root():
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health",
-        "metrics": "/metrics"
+        "metrics": "/metrics",
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
