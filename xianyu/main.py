@@ -98,7 +98,7 @@ class XianyuLive:
 
         # ==================== Token刷新相关配置 ====================
         # Token刷新间隔（秒），默认1小时(3600秒)
-        self.token_refresh_interval = int(os.getenv("TOKEN_REFRESH_INTERVAL", "3600"))
+        self.token_refresh_interval = int(os.getenv("TOKEN_REFRESH_INTERVAL", "86400"))
         # Token刷新失败后重试间隔（秒），默认5分钟(300秒)
         self.token_retry_interval = int(os.getenv("TOKEN_RETRY_INTERVAL", "300"))
         # 上次Token刷新时间戳
