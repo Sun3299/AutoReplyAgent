@@ -83,9 +83,15 @@ class OutputStep(Step):
             output_context = self._build_output_context(ctx)
 
             if ctx.get("needs_clarify"):
-                clarify_question = ctx.get("clarify_question", "请提供更多信息")
-                final_response = clarify_question
-                output_source = "clarify"
+                # 优先使用 LLM 回答，只有当 LLM 回答为空时才用 clarify question
+                llm_response = ctx.get("llm_response", "")
+                if llm_response and llm_response.strip():
+                    final_response = llm_response
+                    output_source = "llm"
+                else:
+                    clarify_question = ctx.get("clarify_question", "请提供更多信息")
+                    final_response = clarify_question
+                    output_source = "clarify"
             else:
                 synth_result = self.synthesizer.synthesize(output_context)
                 final_response = synth_result.content

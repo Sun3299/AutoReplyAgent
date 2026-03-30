@@ -875,7 +875,10 @@ class XianyuLive:
                 if resp.status_code == 200:
                     result = resp.json()
                     ai_reply = result.get("content", "")
-                    logger.info(f"【AUTOREPLY响应】{ai_reply[:100]}")
+                    logger.info(f"【AUTOREPLY响应】result={result}")  # 调试用
+                    logger.info(
+                        f"【AUTOREPLY响应】ai_reply={ai_reply[:100] if ai_reply else '空'}"
+                    )
 
                     # 发送回复
                     if ai_reply:

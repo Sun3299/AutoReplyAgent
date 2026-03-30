@@ -57,7 +57,7 @@ class Planner:
         should_terminate = False
         terminate_reason = ""
         needs_clarify = route_result.get("need_clarify", False)
-        clarify_question = route_result.get("clarify_message", "")
+        clarify_question = route_result.get("reason", "")
 
         # P2优化: 置信度门限过滤
         # 置信度太低时，即使路由到RAG也当闲聊处理，避免低质量检索
