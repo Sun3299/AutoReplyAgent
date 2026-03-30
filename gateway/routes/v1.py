@@ -34,6 +34,7 @@ def get_orchestrator() -> PipelineOrchestrator:
 
 class V1ChatResponse(BaseModel):
     """v1 chat response model."""
+
     requestId: str = Field(..., description="对应请求的requestId")
     responseId: str = Field(..., description="响应ID")
     sessionId: str = Field(..., description="会话ID")
@@ -57,14 +58,14 @@ def generate_response_id() -> str:
     "/chat",
     response_model=V1ChatResponse,
     summary="v1 Chat",
-    description="Synchronous chat endpoint for platform messages"
+    description="Synchronous chat endpoint for platform messages",
 )
 async def chat(request: InboundRequest) -> V1ChatResponse:
     """
     Handle v1 chat request from platform adapters.
-    
+
     POST /v1/chat
-    
+
     Request:
         InboundRequest JSON 格式:
         {
@@ -75,7 +76,7 @@ async def chat(request: InboundRequest) -> V1ChatResponse:
             "content": "用户说什么",
             ...
         }
-    
+
     Response:
         V1ChatResponse:
         {
@@ -91,11 +92,11 @@ async def chat(request: InboundRequest) -> V1ChatResponse:
     trace_id = generate_trace_id()
     response_id = generate_response_id()
     start_time = time.time()
-    
+
     try:
         # 获取 PipelineOrchestrator
         orchestrator = get_orchestrator()
-        
+
         # 构建初始上下文
         context = {
             "channel": request.channel,
@@ -107,7 +108,7 @@ async def chat(request: InboundRequest) -> V1ChatResponse:
             "msg_type": request.msgType,
             "create_time": request.createTime,
         }
-        
+
         # 执行 Pipeline
         result = orchestrator.execute(
             user_id=request.userId,
@@ -115,15 +116,15 @@ async def chat(request: InboundRequest) -> V1ChatResponse:
             trace_id=trace_id,
             context=context,
         )
-        
+
         # 计算耗时
         duration_ms = (time.time() - start_time) * 1000
-        
+
         return V1ChatResponse(
             requestId=request.requestId,
             responseId=response_id,
             sessionId=request.sessionId,
-            content=result.get("response", "抱歉，该回答无法提供"),
+            content=result.get("content", "抱歉，该回答无法提供"),
             traceId=trace_id,
             sources=result.get("sources", []),
             metrics={
@@ -131,10 +132,10 @@ async def chat(request: InboundRequest) -> V1ChatResponse:
                 "gateway_latency_ms": duration_ms,
             },
         )
-        
+
     except Exception as e:
         duration_ms = (time.time() - start_time) * 1000
-        
+
         return V1ChatResponse(
             requestId=request.requestId,
             responseId=response_id,

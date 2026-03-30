@@ -228,7 +228,7 @@ class PipelineOrchestrator:
         # Build ChatResponse-compatible result
         return {
             "trace_id": trace_id,
-            "response": response,
+            "content": response,
             "sources": sources,
             "metrics": step_metrics,
             "error": error,

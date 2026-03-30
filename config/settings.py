@@ -23,10 +23,10 @@ class Settings:
     llm_api_key: str = ""
     llm_base_url: str = "https://mydamoxing.cn/v1"
     llm_model: str = "MiniMax-M2.7-highspeed"
-    llm_temperature: float = 0.7
+    llm_temperature: float = 0.3
     llm_max_tokens: int = 2000
     llm_top_p: float = 1.0
-    llm_timeout: float = 30.0
+    llm_timeout: float = 60.0
 
     # RAG配置
     rag_model: str = "BAAI/bge-small-zh-v1.5"
@@ -62,8 +62,8 @@ class Settings:
             llm_model=os.getenv("LLM_MODEL", "MiniMax-M2.7-highspeed"),
             llm_temperature=float(os.getenv("LLM_TEMPERATURE", "0.3")),
             llm_max_tokens=int(os.getenv("LLM_MAX_TOKENS", "196608")),
-            llm_top_p=float(os.getenv("LLM_TOP_P", "1.0")),
-            llm_timeout=float(os.getenv("LLM_TIMEOUT", "30.0")),
+            llm_top_p=float(os.getenv("LLM_TOP_P", "0.6")),
+            llm_timeout=float(os.getenv("LLM_TIMEOUT", "40.0")),
         )
 
 

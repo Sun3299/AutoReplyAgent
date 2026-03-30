@@ -8,6 +8,7 @@
 5. 支持商品信息解析、订单状态监控
 6. 模拟人工输入延迟，提升回复真实性
 """
+
 import base64
 import json
 import asyncio
@@ -22,7 +23,13 @@ import random
 from typing import Dict
 
 # 工具函数导入
-from .xianyu_utils import generate_mid, generate_uuid, trans_cookies, generate_device_id, decrypt
+from .xianyu_utils import (
+    generate_mid,
+    generate_uuid,
+    trans_cookies,
+    generate_device_id,
+    decrypt,
+)
 
 
 class XianyuLive:
@@ -34,12 +41,12 @@ class XianyuLive:
     - 心跳包发送与响应处理
     - 消息接收、解析、处理
     - 人工/自动模式切换
-    
+
     单例模式：通过 get_instance() 获取实例
     """
-    
+
     _instance = None
-    
+
     @classmethod
     def get_instance(cls, cookies_str=None):
         """获取单例实例"""
@@ -48,12 +55,12 @@ class XianyuLive:
                 raise ValueError("首次调用需要提供 cookies_str")
             cls._instance = cls(cookies_str)
         return cls._instance
-    
+
     @classmethod
     def reset_instance(cls):
         """重置单例（用于测试）"""
         cls._instance = None
-    
+
     def __init__(self, cookies_str):
         """
         初始化闲鱼直播/聊天客户端
@@ -64,7 +71,7 @@ class XianyuLive:
         # 初始化API实例
         self.xianyu = XianyuAPI()
         # WebSocket基础连接地址
-        self.base_url = 'wss://wss-goofish.dingtalk.com/'
+        self.base_url = "wss://wss-goofish.dingtalk.com/"
         # 原始Cookie字符串
         self.cookies_str = cookies_str
         # 转换Cookie为字典格式
@@ -72,7 +79,7 @@ class XianyuLive:
         # 更新API会话的Cookie
         self.xianyu.session.cookies.update(self.cookies)
         # 从Cookie中获取用户ID
-        self.myid = self.cookies['unb']
+        self.myid = self.cookies["unb"]
         # 生成设备ID
         self.device_id = generate_device_id(self.myid)
         # ==================== Session 缓存 ====================
@@ -128,7 +135,9 @@ class XianyuLive:
 
         # ==================== 模拟人工输入配置 ====================
         # 是否模拟人工打字延迟
-        self.simulate_human_typing = os.getenv("SIMULATE_HUMAN_TYPING", "False").lower() == "true"
+        self.simulate_human_typing = (
+            os.getenv("SIMULATE_HUMAN_TYPING", "False").lower() == "true"
+        )
 
         # ==================== 消息追踪 ====================
         # 上次收到业务消息时间（用于保活）
@@ -139,7 +148,9 @@ class XianyuLive:
         # ==================== 测试配置 ====================
         # 是否禁用 Token 自动刷新（用于测试 Token 实际过期时间）
         # 设为 true 时不会主动刷新，等 Token 自然过期
-        self.disable_token_refresh = os.getenv("DISABLE_TOKEN_REFRESH", "false").lower() == "true"
+        self.disable_token_refresh = (
+            os.getenv("DISABLE_TOKEN_REFRESH", "false").lower() == "true"
+        )
 
     async def refresh_token(self):
         """
@@ -154,8 +165,8 @@ class XianyuLive:
             token_result = self.xianyu.get_token(self.device_id)
 
             # 检查Token获取结果
-            if 'data' in token_result and 'accessToken' in token_result['data']:
-                new_token = token_result['data']['accessToken']
+            if "data" in token_result and "accessToken" in token_result["data"]:
+                new_token = token_result["data"]["accessToken"]
                 self.current_token = new_token
                 self.last_token_refresh_time = time.time()
                 logger.info("Token刷新成功")
@@ -178,7 +189,10 @@ class XianyuLive:
                 current_time = time.time()
 
                 # 检查是否需要刷新Token（当前时间 - 上次刷新时间 >= 刷新间隔）
-                if current_time - self.last_token_refresh_time >= self.token_refresh_interval:
+                if (
+                    current_time - self.last_token_refresh_time
+                    >= self.token_refresh_interval
+                ):
                     # 检查是否禁用了 Token 刷新（用于测试）
                     if self.disable_token_refresh:
                         logger.info("【测试模式】Token刷新已禁用，等待自然过期...")
@@ -224,13 +238,13 @@ class XianyuLive:
         # 构建消息体结构
         text_payload = {
             "contentType": 1,  # 文本类型
-            "text": {
-                "text": text
-            }
+            "text": {"text": text},
         }
 
         # Base64编码消息内容
-        text_base64 = str(base64.b64encode(json.dumps(text_payload).encode('utf-8')), 'utf-8')
+        text_base64 = str(
+            base64.b64encode(json.dumps(text_payload).encode("utf-8")), "utf-8"
+        )
 
         # 构建完整的发送消息结构
         msg = {
@@ -247,27 +261,24 @@ class XianyuLive:
                         "contentType": 101,  # 自定义内容类型
                         "custom": {
                             "type": 1,
-                            "data": text_base64  # Base64编码的消息内容
-                        }
+                            "data": text_base64,  # Base64编码的消息内容
+                        },
                     },
                     "redPointPolicy": 0,  # 红点策略
                     "extension": {
                         "extJson": "{}"  # 扩展字段
                     },
-                    "ctx": {
-                        "appVersion": "1.0",
-                        "platform": "web"
-                    },
+                    "ctx": {"appVersion": "1.0", "platform": "web"},
                     "mtags": {},
-                    "msgReadStatusSetting": 1  # 消息已读设置
+                    "msgReadStatusSetting": 1,  # 消息已读设置
                 },
                 {
                     "actualReceivers": [
                         f"{toid}@goofish",  # 接收方
-                        f"{self.myid}@goofish"  # 发送方（自己）
+                        f"{self.myid}@goofish",  # 发送方（自己）
                     ]
-                }
-            ]
+                },
+            ],
         }
 
         # 发送消息
@@ -276,29 +287,28 @@ class XianyuLive:
     def send_message_sync(self, cid: str, toid: str, text: str) -> dict:
         """
         同步发送消息（供 Tool 调用）
-        
+
         将消息放入队列，由事件循环异步发送。
-        
+
         Args:
             cid: 会话ID
             toid: 接收方用户ID
             text: 消息内容
-            
+
         Returns:
             dict: 发送结果
         """
         import threading
-        
+
         if self.ws is None:
             return {"success": False, "error": "WebSocket未连接"}
-        
+
         # 如果已经在事件循环中，直接发送
         try:
             loop = asyncio.get_running_loop()
             # 创建任务放入事件循环
             future = asyncio.run_coroutine_threadsafe(
-                self.send_msg(self.ws, cid, toid, text),
-                loop
+                self.send_msg(self.ws, cid, toid, text), loop
             )
             try:
                 future.result(timeout=10)
@@ -321,7 +331,11 @@ class XianyuLive:
             Exception: Token获取失败时抛出异常
         """
         # 检查并获取初始Token
-        if not self.current_token or (time.time() - self.last_token_refresh_time) >= self.token_refresh_interval:
+        if (
+            not self.current_token
+            or (time.time() - self.last_token_refresh_time)
+            >= self.token_refresh_interval
+        ):
             logger.info("获取初始token...")
             await self.refresh_token()
 
@@ -342,8 +356,8 @@ class XianyuLive:
                 "wv": "im:3,au:3,sy:6",  # 版本信息
                 "sync": "0,0;0;0;",  # 同步参数
                 "did": self.device_id,  # 设备ID
-                "mid": generate_mid()  # 消息ID
-            }
+                "mid": generate_mid(),  # 消息ID
+            },
         }
 
         # 发送注册消息
@@ -356,20 +370,22 @@ class XianyuLive:
         sync_msg = {
             "lwp": "/r/SyncStatus/ackDiff",
             "headers": {"mid": "5701741704675979 0"},
-            "body": [{
-                "pipeline": "sync",
-                "tooLong2Tag": "PNM,1",
-                "channel": "sync",
-                "topic": "sync",
-                "highPts": 0,
-                "pts": int(time.time() * 1000) * 1000,  # 时间戳（微秒）
-                "seq": 0,
-                "timestamp": int(time.time() * 1000)  # 时间戳（毫秒）
-            }]
+            "body": [
+                {
+                    "pipeline": "sync",
+                    "tooLong2Tag": "PNM,1",
+                    "channel": "sync",
+                    "topic": "sync",
+                    "highPts": 0,
+                    "pts": int(time.time() * 1000) * 1000,  # 时间戳（微秒）
+                    "seq": 0,
+                    "timestamp": int(time.time() * 1000),  # 时间戳（毫秒）
+                }
+            ],
         }
 
         await ws.send(json.dumps(sync_msg))
-        logger.info('连接注册完成')
+        logger.info("连接注册完成")
 
     def is_chat_message(self, message):
         """
@@ -383,12 +399,12 @@ class XianyuLive:
         """
         try:
             return (
-                    isinstance(message, dict)
-                    and "1" in message
-                    and isinstance(message["1"], dict)
-                    and "10" in message["1"]
-                    and isinstance(message["1"]["10"], dict)
-                    and "reminderContent" in message["1"]["10"]  # 消息内容字段存在
+                isinstance(message, dict)
+                and "1" in message
+                and isinstance(message["1"], dict)
+                and "10" in message["1"]
+                and isinstance(message["1"]["10"], dict)
+                and "reminderContent" in message["1"]["10"]  # 消息内容字段存在
             )
         except Exception:
             return False
@@ -405,11 +421,11 @@ class XianyuLive:
         """
         try:
             return (
-                    isinstance(message_data, dict)
-                    and "body" in message_data
-                    and "syncPushPackage" in message_data["body"]
-                    and "data" in message_data["body"]["syncPushPackage"]
-                    and len(message_data["body"]["syncPushPackage"]["data"]) > 0
+                isinstance(message_data, dict)
+                and "body" in message_data
+                and "syncPushPackage" in message_data["body"]
+                and "data" in message_data["body"]["syncPushPackage"]
+                and len(message_data["body"]["syncPushPackage"]["data"]) > 0
             )
         except Exception:
             return False
@@ -426,14 +442,14 @@ class XianyuLive:
         """
         try:
             return (
-                    isinstance(message, dict)
-                    and "1" in message
-                    and isinstance(message["1"], list)
-                    and len(message["1"]) > 0
-                    and isinstance(message["1"][0], dict)
-                    and "1" in message["1"][0]
-                    and isinstance(message["1"][0]["1"], str)
-                    and "@goofish" in message["1"][0]["1"]  # 包含用户ID标识
+                isinstance(message, dict)
+                and "1" in message
+                and isinstance(message["1"], list)
+                and len(message["1"]) > 0
+                and isinstance(message["1"][0], dict)
+                and "1" in message["1"][0]
+                and isinstance(message["1"][0]["1"], str)
+                and "@goofish" in message["1"][0]["1"]  # 包含用户ID标识
             )
         except Exception:
             return False
@@ -450,11 +466,11 @@ class XianyuLive:
         """
         try:
             return (
-                    isinstance(message, dict)
-                    and "3" in message
-                    and isinstance(message["3"], dict)
-                    and "needPush" in message["3"]
-                    and message["3"]["needPush"] == "false"  # 系统消息无需推送
+                isinstance(message, dict)
+                and "3" in message
+                and isinstance(message["3"], dict)
+                and "needPush" in message["3"]
+                and message["3"]["needPush"] == "false"  # 系统消息无需推送
             )
         except Exception:
             return False
@@ -475,7 +491,7 @@ class XianyuLive:
 
             clean_message = message.strip()
             # 检查是否以 [ 开头且以 ] 结尾
-            if clean_message.startswith('[') and clean_message.endswith(']'):
+            if clean_message.startswith("[") and clean_message.endswith("]"):
                 logger.debug(f"检测到系统消息: {clean_message}")
                 return True
             return False
@@ -513,7 +529,10 @@ class XianyuLive:
         # 检查人工模式是否超时
         current_time = time.time()
         if chat_id in self.manual_mode_timestamps:
-            if current_time - self.manual_mode_timestamps[chat_id] > self.manual_mode_timeout:
+            if (
+                current_time - self.manual_mode_timestamps[chat_id]
+                > self.manual_mode_timeout
+            ):
                 # 超时自动退出人工模式
                 self.exit_manual_mode(chat_id)
                 return False
@@ -586,22 +605,28 @@ class XianyuLive:
         """
         # 处理SKU列表
         clean_skus = []
-        raw_sku_list = item_info.get('skuList', [])
+        raw_sku_list = item_info.get("skuList", [])
 
         for sku in raw_sku_list:
             # 提取规格文本
-            specs = [p['valueText'] for p in sku.get('propertyList', []) if p.get('valueText')]
+            specs = [
+                p["valueText"]
+                for p in sku.get("propertyList", [])
+                if p.get("valueText")
+            ]
             spec_text = " ".join(specs) if specs else "默认规格"
 
             # 构建SKU信息
-            clean_skus.append({
-                "spec": spec_text,  # 规格描述
-                "price": self.format_price(sku.get('price', 0)),  # 价格（元）
-                "stock": sku.get('quantity', 0)  # 库存
-            })
+            clean_skus.append(
+                {
+                    "spec": spec_text,  # 规格描述
+                    "price": self.format_price(sku.get("price", 0)),  # 价格（元）
+                    "stock": sku.get("quantity", 0),  # 库存
+                }
+            )
 
         # 计算价格区间
-        valid_prices = [s['price'] for s in clean_skus if s['price'] > 0]
+        valid_prices = [s["price"] for s in clean_skus if s["price"] > 0]
 
         if valid_prices:
             min_price = min(valid_prices)
@@ -612,16 +637,16 @@ class XianyuLive:
                 price_display = f"¥{min_price} - ¥{max_price}"
         else:
             # 无SKU价格时使用商品主价格
-            main_price = round(float(item_info.get('soldPrice', 0)), 2)
+            main_price = round(float(item_info.get("soldPrice", 0)), 2)
             price_display = f"¥{main_price}"
 
         # 构建商品摘要
         summary = {
-            "title": item_info.get('title', ''),  # 商品标题
-            "desc": item_info.get('desc', ''),  # 商品描述
+            "title": item_info.get("title", ""),  # 商品标题
+            "desc": item_info.get("desc", ""),  # 商品描述
             "price_range": price_display,  # 价格区间
-            "total_stock": item_info.get('quantity', 0),  # 总库存
-            "sku_details": clean_skus  # SKU详情
+            "total_stock": item_info.get("quantity", 0),  # 总库存
+            "sku_details": clean_skus,  # SKU详情
         }
 
         return json.dumps(summary, ensure_ascii=False)
@@ -642,9 +667,13 @@ class XianyuLive:
                 ack = {
                     "code": 200,  # 成功响应码
                     "headers": {
-                        "mid": message["headers"]["mid"] if "mid" in message["headers"] else generate_mid(),
-                        "sid": message["headers"]["sid"] if "sid" in message["headers"] else '',
-                    }
+                        "mid": message["headers"]["mid"]
+                        if "mid" in message["headers"]
+                        else generate_mid(),
+                        "sid": message["headers"]["sid"]
+                        if "sid" in message["headers"]
+                        else "",
+                    },
                 }
 
                 # 复制必要的header字段
@@ -687,21 +716,21 @@ class XianyuLive:
             # ==================== 处理订单状态消息 ====================
             try:
                 # 订单状态判断（等待付款、交易关闭、等待发货）
-                red_reminder = message['3']['redReminder']
-                if red_reminder == '等待买家付款':
-                    user_id = message['1'].split('@')[0]
-                    user_url = f'https://www.goofish.com/personal?userId={user_id}'
-                    logger.info(f'等待买家 {user_url} 付款')
+                red_reminder = message["3"]["redReminder"]
+                if red_reminder == "等待买家付款":
+                    user_id = message["1"].split("@")[0]
+                    user_url = f"https://www.goofish.com/personal?userId={user_id}"
+                    logger.info(f"等待买家 {user_url} 付款")
                     return
-                elif red_reminder == '交易关闭':
-                    user_id = message['1'].split('@')[0]
-                    user_url = f'https://www.goofish.com/personal?userId={user_id}'
-                    logger.info(f'买家 {user_url} 交易关闭')
+                elif red_reminder == "交易关闭":
+                    user_id = message["1"].split("@")[0]
+                    user_url = f"https://www.goofish.com/personal?userId={user_id}"
+                    logger.info(f"买家 {user_url} 交易关闭")
                     return
-                elif red_reminder == '等待卖家发货':
-                    user_id = message['1'].split('@')[0]
-                    user_url = f'https://www.goofish.com/personal?userId={user_id}'
-                    logger.info(f'交易成功 {user_url} 等待卖家发货')
+                elif red_reminder == "等待卖家发货":
+                    user_id = message["1"].split("@")[0]
+                    user_url = f"https://www.goofish.com/personal?userId={user_id}"
+                    logger.info(f"交易成功 {user_url} 等待卖家发货")
                     return
             except Exception:
                 # 非订单消息，继续处理
@@ -734,9 +763,13 @@ class XianyuLive:
             # ==================== 提取商品和会话信息 ====================
             # 从URL中提取商品ID
             url_info = message["1"]["10"]["reminderUrl"]
-            item_id = url_info.split("itemId=")[1].split("&")[0] if "itemId=" in url_info else None
+            item_id = (
+                url_info.split("itemId=")[1].split("&")[0]
+                if "itemId=" in url_info
+                else None
+            )
             # 提取会话ID
-            chat_id = message["1"]["2"].split('@')[0]
+            chat_id = message["1"]["2"].split("@")[0]
 
             if not item_id:
                 logger.warning("无法获取商品ID")
@@ -752,17 +785,22 @@ class XianyuLive:
                     if mode == "manual":
                         logger.info(f"🔴 已接管会话 {chat_id} (商品: {item_id})")
                     else:
-                        logger.info(f"🟢 已恢复会话 {chat_id} 的自动回复 (商品: {item_id})")
+                        logger.info(
+                            f"🟢 已恢复会话 {chat_id} 的自动回复 (商品: {item_id})"
+                        )
                     return
 
                 # 记录卖家人工回复
-                logger.info(f"卖家人工回复 (会话: {chat_id}, 商品: {item_id}): {send_message}")
+                logger.info(
+                    f"卖家人工回复 (会话: {chat_id}, 商品: {item_id}): {send_message}"
+                )
                 return
 
             # ==================== 记录用户消息 ====================
             logger.info(
-                f"用户: {send_user_name} (ID: {send_user_id}), 商品: {item_id}, 会话: {chat_id}, 消息: {send_message}")
-            
+                f"用户: {send_user_name} (ID: {send_user_id}), 商品: {item_id}, 会话: {chat_id}, 消息: {send_message}"
+            )
+
             # 更新最后消息时间（用于保活）
             self.last_message_time = time.time()
 
@@ -786,17 +824,21 @@ class XianyuLive:
                 # 新商品，获取并缓存商品信息
                 logger.info(f"新商品，从API获取商品信息: {item_id}")
                 api_result = self.xianyu.get_item_info(item_id)
-                if 'data' in api_result and 'itemDO' in api_result['data']:
-                    item_info = api_result['data']['itemDO']
+                if "data" in api_result and "itemDO" in api_result["data"]:
+                    item_info = api_result["data"]["itemDO"]
                     self.item_info_cache[item_id] = item_info
-                    item_description = f"当前商品的信息如下：{self.build_item_description(item_info)}"
+                    item_description = (
+                        f"当前商品的信息如下：{self.build_item_description(item_info)}"
+                    )
                     logger.info(f"【商品缓存】商品信息已缓存，商品 {item_id}")
                 else:
                     logger.warning(f"获取商品信息失败: {api_result}")
             else:
                 # 老商品，用缓存
                 cached_item = self.item_info_cache.get(item_id, {})
-                item_description = f"当前商品的信息如下：{self.build_item_description(cached_item)}"
+                item_description = (
+                    f"当前商品的信息如下：{self.build_item_description(cached_item)}"
+                )
                 logger.debug(f"【商品缓存命中】使用缓存的商品信息，商品 {item_id}")
 
             # ==================== 调用 autoreply ====================
@@ -804,7 +846,7 @@ class XianyuLive:
             try:
                 import requests
                 import time as time_module
-                
+
                 # 构建请求
                 autoreply_payload = {
                     "requestId": f"xianyu_{generate_mid()}",
@@ -818,33 +860,37 @@ class XianyuLive:
                     "extension": {
                         "item_id": str(item_id),
                         "item_info": item_description,
-                    }
+                    },
                 }
-                
-                logger.info(f"【AUTOREPLY请求】{json.dumps(autoreply_payload, ensure_ascii=False)}")
-                
+
+                logger.info(
+                    f"【AUTOREPLY请求】{json.dumps(autoreply_payload, ensure_ascii=False)}"
+                )
+
                 # 调用 autoreply
                 resp = requests.post(
-                    "http://localhost:8000/v1/chat",
-                    json=autoreply_payload,
-                    timeout=60
+                    "http://localhost:8000/v1/chat", json=autoreply_payload, timeout=60
                 )
-                
+
                 if resp.status_code == 200:
                     result = resp.json()
                     ai_reply = result.get("content", "")
                     logger.info(f"【AUTOREPLY响应】{ai_reply[:100]}")
-                    
+
                     # 发送回复
                     if ai_reply:
                         await self.send_msg(self.ws, chat_id, send_user_id, ai_reply)
-                        self.last_message_time = time.time()  # 更新最后消息时间（发送也算活动）
-                        logger.info(f"【已发送回复】到会话 {chat_id}: {ai_reply[:50]}...")
+                        self.last_message_time = (
+                            time.time()
+                        )  # 更新最后消息时间（发送也算活动）
+                        logger.info(
+                            f"【已发送回复】到会话 {chat_id}: {ai_reply[:50]}..."
+                        )
                     else:
                         logger.warning(f"【AUTOREPLY返回空】会话 {chat_id}")
                 else:
                     logger.error(f"【AUTOREPLY失败】状态码: {resp.status_code}")
-                    
+
             except Exception as e:
                 logger.error(f"【AUTOREPLY异常】{str(e)}")
 
@@ -869,9 +915,7 @@ class XianyuLive:
             heartbeat_mid = generate_mid()
             heartbeat_msg = {
                 "lwp": "/!",  # 心跳接口标识
-                "headers": {
-                    "mid": heartbeat_mid
-                }
+                "headers": {"mid": heartbeat_mid},
             }
             await ws.send(json.dumps(heartbeat_msg))
             self.last_heartbeat_time = time.time()
@@ -902,13 +946,17 @@ class XianyuLive:
                     try:
                         # 使用 WebSocket 协议的 ping 帧保活
                         await ws.ping()
-                        logger.debug(f"发送保活ping，距离上次消息已过 {int(current_time - self.last_message_time)} 秒")
+                        logger.debug(
+                            f"发送保活ping，距离上次消息已过 {int(current_time - self.last_message_time)} 秒"
+                        )
                     except Exception as e:
                         logger.warning(f"保活ping失败: {e}")
                         break
 
                 # 检查心跳响应超时
-                if (current_time - self.last_heartbeat_response) > (self.heartbeat_interval + self.heartbeat_timeout):
+                if (current_time - self.last_heartbeat_response) > (
+                    self.heartbeat_interval + self.heartbeat_timeout
+                ):
                     logger.warning("心跳响应超时，可能连接已断开")
                     break
 
@@ -929,11 +977,11 @@ class XianyuLive:
         """
         try:
             if (
-                    isinstance(message_data, dict)
-                    and "headers" in message_data
-                    and "mid" in message_data["headers"]
-                    and "code" in message_data
-                    and message_data["code"] == 200  # 成功响应码
+                isinstance(message_data, dict)
+                and "headers" in message_data
+                and "mid" in message_data["headers"]
+                and "code" in message_data
+                and message_data["code"] == 200  # 成功响应码
             ):
                 self.last_heartbeat_response = time.time()
                 logger.debug("收到心跳响应")
@@ -965,7 +1013,9 @@ class XianyuLive:
                 }
 
                 # 建立WebSocket连接（传入headers）
-                async with websockets.connect(self.base_url, additional_headers=headers) as websocket:
+                async with websockets.connect(
+                    self.base_url, additional_headers=headers
+                ) as websocket:
                     self.ws = websocket
                     # 初始化连接
                     await self.init(websocket)
@@ -976,10 +1026,14 @@ class XianyuLive:
                     self.last_message_time = time.time()
 
                     # 启动心跳任务
-                    self.heartbeat_task = asyncio.create_task(self.heartbeat_loop(websocket))
+                    self.heartbeat_task = asyncio.create_task(
+                        self.heartbeat_loop(websocket)
+                    )
 
                     # 启动Token刷新任务
-                    self.token_refresh_task = asyncio.create_task(self.token_refresh_loop())
+                    self.token_refresh_task = asyncio.create_task(
+                        self.token_refresh_loop()
+                    )
 
                     # 持续接收消息
                     async for message in websocket:
@@ -997,18 +1051,23 @@ class XianyuLive:
                                 continue
 
                             # 发送通用ACK响应
-                            if "headers" in message_data and "mid" in message_data["headers"]:
+                            if (
+                                "headers" in message_data
+                                and "mid" in message_data["headers"]
+                            ):
                                 ack = {
                                     "code": 200,
                                     "headers": {
                                         "mid": message_data["headers"]["mid"],
-                                        "sid": message_data["headers"].get("sid", "")
-                                    }
+                                        "sid": message_data["headers"].get("sid", ""),
+                                    },
                                 }
                                 # 复制必要的header字段
                                 for key in ["app-key", "ua", "dt"]:
                                     if key in message_data["headers"]:
-                                        ack["headers"][key] = message_data["headers"][key]
+                                        ack["headers"][key] = message_data["headers"][
+                                            key
+                                        ]
                                 await websocket.send(json.dumps(ack))
 
                             # 处理业务消息
@@ -1059,7 +1118,7 @@ def check_and_complete_env():
     # 定义关键环境变量及其说明
     critical_vars = {
         "API_KEY": "默认使用通义千问,apikey通过百炼模型平台获取",
-        "COOKIES_STR": "your_cookies_here"
+        "COOKIES_STR": "your_cookies_here",
     }
 
     env_path = ".env"
@@ -1081,7 +1140,7 @@ def check_and_complete_env():
                     try:
                         # 如果.env文件不存在则创建
                         if not os.path.exists(env_path):
-                            with open(env_path, 'w', encoding='utf-8') as f:
+                            with open(env_path, "w", encoding="utf-8") as f:
                                 pass
 
                         # 更新.env文件中的变量
@@ -1097,7 +1156,7 @@ def check_and_complete_env():
         logger.info("新的配置已保存/更新至 .env 文件中")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     """
     程序入口
     1. 加载环境变量
@@ -1121,7 +1180,7 @@ if __name__ == '__main__':
     logger.add(
         sys.stderr,
         level=log_level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
     )
     logger.info(f"日志级别设置为: {log_level}")
 
