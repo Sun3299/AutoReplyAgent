@@ -174,7 +174,6 @@ class UserMessage:
             return {
                 "role": self.role,
                 "content": self.content,
-                "timestamp": self.timestamp,
             }
         else:
             blocks = []
@@ -190,7 +189,6 @@ class UserMessage:
             return {
                 "role": self.role,
                 "content": blocks,
-                "timestamp": self.timestamp,
             }
 
 
@@ -236,11 +234,6 @@ class AssistantMessage:
         result: Dict[str, Any] = {
             "role": self.role,
             "content": blocks,
-            "api": self.api,
-            "provider": self.provider,
-            "model": self.model,
-            "stopReason": self.stop_reason,
-            "timestamp": self.timestamp,
         }
         if self.usage:
             result["usage"] = self.usage.to_dict()

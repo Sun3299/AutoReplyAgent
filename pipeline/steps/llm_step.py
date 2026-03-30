@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from typing import Optional, List, Dict, Any, TYPE_CHECKING
 import time
+from datetime import datetime
 
 from pipeline.step import Step, StepResult, StepType
 from llm.base import (
@@ -257,17 +258,23 @@ class LlmStep(Step):
             if hasattr(hist_msg, "role"):
                 role = hist_msg.role
                 content = hist_msg.content if hasattr(hist_msg, "content") else ""
+                timestamp = getattr(hist_msg, "timestamp", 0) or 0
             else:
                 role = hist_msg.get("role", "user")
                 content = hist_msg.get("content", "")
+                timestamp = hist_msg.get("timestamp", 0) or 0
 
             if role != "user" and role != "assistant":
                 role = "user" if role == "user" else "assistant"
 
             if role == "user":
-                messages.append(UserMessage(content=content))
+                messages.append(UserMessage(content=content, timestamp=timestamp))
             else:
-                messages.append(AssistantMessage(content=[TextContent(text=content)]))
+                messages.append(
+                    AssistantMessage(
+                        content=[TextContent(text=content)], timestamp=timestamp
+                    )
+                )
 
         # ========== 3. 当前消息（RAG 参考资料 + 用户问题） ==========
         rag_results = ctx.get("rag_results", [])
@@ -293,7 +300,32 @@ class LlmStep(Step):
         else:
             current_content = ctx.request
 
-        messages.append(UserMessage(content=current_content))
+        # 使用 context 中的 create_time 作为当前消息的时间戳
+        create_time = ctx.get("create_time", "")
+        # 转换时间戳：如果是字符串格式则转换，否则用当前时间
+        if create_time:
+            try:
+                # 尝试解析 ISO 格式时间
+                ts = int(
+                    datetime.fromisoformat(
+                        str(create_time).replace("Z", "+00:00")
+                    ).timestamp()
+                    * 1000
+                )
+            except (ValueError, TypeError):
+                # 如果解析失败，尝试直接转换
+                try:
+                    ts = (
+                        int(float(create_time) * 1000)
+                        if "." in str(create_time)
+                        else int(create_time)
+                    )
+                except (ValueError, TypeError):
+                    ts = 0
+        else:
+            ts = 0
+
+        messages.append(UserMessage(content=current_content, timestamp=ts))
 
         return messages
 

@@ -99,14 +99,14 @@ class AgentStep(Step):
 
                 # 先尝试从 SessionManager 内存读取
                 rounds, _ = session_handler.get_rounds(
-                    prefixed_session_key, keep_rounds=5
+                    prefixed_session_key, keep_rounds=None
                 )
                 if rounds:
                     history_messages = rounds
                 else:
                     # 内存没有，从文件读取（跨进程持久化）
                     file_records = session_handler.get_session_history_from_file(
-                        channel, session_key, limit=10
+                        channel, session_key, limit=0
                     )
                     if file_records:
                         # 转换文件格式到 rounds 格式
