@@ -226,7 +226,7 @@ MessageAdapter  → 渠道专属格式
 ### 1. 克隆 & 安装依赖
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/Sun3299/AutoReplyAgent
 cd autoreply
 pip install -r requirements.txt
 ```
